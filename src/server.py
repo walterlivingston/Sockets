@@ -1,17 +1,14 @@
 import socket
 import threading
+import sys
 
 HEADER = 64
 PORT = 5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
+HOST = socket.gethostbyname(socket.gethostname())
 FORMAT = 'utf-8'
 DISCONNECT_MESSAGE = '!DISCONNECT'
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(ADDR)
-
-
+server = None
 
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
@@ -26,13 +23,31 @@ def handle_client(conn, addr):
                 connected = False
 
             print(f"[{addr}] {msg}")
-            conn.send("Msg received".encode(FORMAT))
+            # conn.send("Msg received".encode(FORMAT))
 
     conn.close()
 
 def start():
-    server.listen()
-    print(f"[LISTENING] Server is listening on {SERVER}")
+    for res in socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE):
+        af, sock_type, proto, canon_name, sa = res
+        try:
+            server = socket.socket(af, sock_type, proto)
+        except OSError as msg:
+            server = None
+            continue
+        try:
+            server.bind(sa)
+            server.listen()
+            break
+        except OSError as msg:
+            server.close()
+            server = None
+            continue
+        break
+    if server is None:
+        print('could not open socket')
+        sys.exit(1)
+    print(f"[LISTENING] Server is listening on {HOST}")
     while True:
         conn, addr = server.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
