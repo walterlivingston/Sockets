@@ -1,3 +1,4 @@
+import threading
 import socket
 import sys
 
@@ -5,7 +6,7 @@ HEADER = 64
 PORT = 5050
 HOST = socket.gethostbyname(socket.gethostname())
 FORMAT = 'utf-8'
-DISCONNECT_MESSAGE = '!DISCONNECT'
+DISCONNECT_MESSAGE = 'q'
 
 client = None
 
@@ -16,7 +17,10 @@ def send(conn, msg):
     send_length += b' ' * (HEADER - len(send_length))
     conn.send(send_length)
     conn.send(message)
-    print(conn.recv(2048).decode(FORMAT))
+
+def receive(conn):
+    while True:
+        print(conn.recv(2048).decode(FORMAT))
 
 def start():
     for res in socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM):
@@ -28,7 +32,6 @@ def start():
             continue
         try:
             client.connect(sa)
-            break
         except OSError as msg:
             client.close()
             client = None
@@ -39,6 +42,10 @@ def start():
         sys.exit(1)
     with client:
         while True:
-            send(client, input())
+            receive_thread = threading.Thread(target=receive, args=(client,))
+            receive_thread.start()
+
+            send_thread = threading.Thread(target=send, args=(client, input()))
+            send_thread.start()
 
 start()
